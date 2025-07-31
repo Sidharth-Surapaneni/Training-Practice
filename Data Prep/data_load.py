@@ -129,21 +129,17 @@ class TextProcessor:
         return result
 
 
-def process_text(example, text_processor=None):
+def process_text(example):
     """Process text from an example using configurable text processor.
     
     Args:
         example (dict): Dictionary containing text data
-        text_processor (TextProcessor, optional): Text processor instance
         
     Returns:
         str or None: Processed text, or None if no text is available
     """
     try:
-        # Use default text processor if none provided
-        if text_processor is None:
-            text_processor = TextProcessor()
-            
+        text_processor = TextProcessor()
         # Check for text in different possible field names
         if "sentence" in example:
             original_text = example["sentence"]
@@ -162,16 +158,12 @@ def process_text(example, text_processor=None):
 
 
 
-def process_audio(output_dir="./data_stats", text_processor=None):
-    """Process audio datasets and log statistics.
+def load_data():
+    """Load audio datasets from various sources.
     
-    Args:
-        output_dir (str): Directory to save the dataset statistics
+    Returns:
+        dict: Dictionary of loaded datasets
     """
-    # Create output directory if it doesn't exist
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    stats_file = Path(output_dir) / "dataset_stats.jsonl"
-    
     # Dictionary to hold all datasets
     datasets = {}
     
@@ -201,6 +193,27 @@ def process_audio(output_dir="./data_stats", text_processor=None):
             print(f"Loaded VoxPopuli dataset: {lang_code}")
         except Exception as e:
             print(f"Failed to load VoxPopuli dataset {lang_code}: {str(e)}")
+            
+    return datasets
+
+
+def process_audio(output_dir="./data_stats", datasets=None):
+    """Process audio datasets and log statistics.
+    
+    Args:
+        output_dir (str): Directory to save the dataset statistics
+        datasets (dict, optional): Dictionary of datasets to process. If None, will load datasets.
+        
+    Returns:
+        tuple: (resampled_audio, text_data, dataset_stats)
+    """
+    # Create output directory if it doesn't exist
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    stats_file = Path(output_dir) / "dataset_stats.jsonl"
+    
+    # Load datasets if not provided
+    if datasets is None:
+        datasets = load_data()
     
     # Process and resample all audio to 16000 Hz
     resampled_audio = []
@@ -226,7 +239,14 @@ def process_audio(output_dir="./data_stats", text_processor=None):
                 
                 # Extract audio and get length in one step
                 processed_audio, audio_length, original_sr = extract_audio(example)
-                processed_text = process_text(example, text_processor)
+
+                processed_text = None
+                if "sentence" in example:
+                    processed_text = example["sentence"]
+                elif "text" in example:
+                    processed_text = example["text"]
+                elif "normalized_text" in example:
+                    processed_text = example["normalized_text"]
                 
                 # Skip if audio processing failed
                 if processed_audio is None:
@@ -299,3 +319,6 @@ def process_audio(output_dir="./data_stats", text_processor=None):
 
     # Return both audio and text data for further processing
     return resampled_audio, text_data, dataset_stats
+
+if __name__ == "__main__":
+    process_audio()
